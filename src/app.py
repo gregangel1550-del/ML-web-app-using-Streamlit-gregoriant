@@ -2,7 +2,7 @@
 import streamlit as st
 import joblib
 
-model = joblib.load("/workspaces/ML-web-app-using-Streamlit-gregoriant/src/decision_tree_classifier_default_42 (1).pkl")
+model = joblib.load("/workspaces/ML-web-app-using-Streamlit-gregoriant/src/decision_tree_classifier_default_42.pkl")
 class_dict = {"0": "No Diabético",
               "1": "Diabético"}
 st.title("Diabetes - Model prediciton")    

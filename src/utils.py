@@ -1,13 +1,9 @@
-from dotenv import load_dotenv
+import streamlit as st
 from sqlalchemy import create_engine
 import pandas as pd
 
-# load the .env file variables
-load_dotenv()
-
-
 def db_connect():
-    import os
-    engine = create_engine(os.getenv('DATABASE_URL'))
-    engine.connect()
+    # Streamlit Cloud looks for this in the "Secrets" settings
+    db_url = st.secrets["DATABASE_URL"]
+    engine = create_engine(db_url)
     return engine

@@ -9,6 +9,14 @@ import os
 from statsmodels.tsa.arima.model import ARIMA
 from sklearn.metrics import mean_squared_error
 
+@st.cache_data
+def load_data():
+    # Get the directory of the current script (src folder)
+    base_path = os.path.dirname(__file__)
+    # Combine it with the filename
+    file_path = os.path.join(base_path, "df_final_poblacion.csv")
+    
+    return pd.read_csv(file_path)
 
 # PAGE CONFIG
 
@@ -23,11 +31,6 @@ st.markdown(""" Esta aplicación permite analizar la evolución trimestral
             """)
 
 # LOAD DATA
-
-@st.cache_data
-def load_data():
-    df = pd.read_csv("df_final_poblacion.csv")
-    return df
 
 df = load_data()
 

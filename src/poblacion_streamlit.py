@@ -4,8 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import joblib
 import os
-
-
+import pydeck as pdk
 from statsmodels.tsa.arima.model import ARIMA
 from sklearn.metrics import mean_squared_error
 
@@ -70,6 +69,11 @@ serie = data["Valor trimestral"]
 
 # Target variable
 y = data["Valor trimestral"]
+# 1. Convert Poblacion to numeric, turning errors into NaN
+data["Poblacion"] = pd.to_numeric(data["Poblacion"], errors='coerce')
+
+# 2. Drop rows where Poblacion is 0 or NaN to avoid division by zero/errors
+data = data[data["Poblacion"] > 0]
 
 if normalize_pop:
     y = (y / data["Poblacion"]) * 100000

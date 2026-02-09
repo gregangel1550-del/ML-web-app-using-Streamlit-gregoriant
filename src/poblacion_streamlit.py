@@ -45,6 +45,7 @@ delito = st.sidebar.selectbox("Seleccione el tipo de delito",
                               sorted(df["Delitos"].unique()))
 
 
+normalize_pop = st.sidebar.checkbox("Normalizar por población (por cada 100.000 habitantes)")
 
 
 # FILTER DATA

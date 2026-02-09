@@ -44,12 +44,7 @@ municipio = st.sidebar.selectbox("Seleccione Municipio",
 delito = st.sidebar.selectbox("Seleccione el tipo de delito",
                               sorted(df["Delitos"].unique()))
 
-forecast_steps = st.sidebar.slider("Trimestres de previsión",
-                                   min_value=4,
-                                   max_value=20,
-                                   value=8)
 
-normalize_pop = st.sidebar.checkbox("Normalizar por población (por cada 100.000 habitantes)")
 
 
 # FILTER DATA

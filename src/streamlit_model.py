@@ -49,11 +49,11 @@ st.divider()
 st.sidebar.header("⚙️ Configuration")
 
 CITY_MODELS = {
-    "Madrid": "models/modelo_madrid.pkl",
-    "Barcelona": "models/modelo_barcelona.pkl",
-    "Valencia": "models/modelo_valencia.pkl",
-    "Alicante": "models/modelo_alicante.pkl",
-    "Castellón": "models/modelo_castellon.pkl",
+    "Madrid": "src/modelo_madrid.pkl",
+    "Barcelona": "src/modelo_barcelona.pkl",
+    "Valencia": "src/modelo_valencia.pkl",
+    "Alicante": "src/modelo_alicante.pkl",
+    "Castellón": "src/modelo_castellon.pkl",
 }
 
 city = st.sidebar.selectbox("🏙️ Select City", list(CITY_MODELS.keys()))

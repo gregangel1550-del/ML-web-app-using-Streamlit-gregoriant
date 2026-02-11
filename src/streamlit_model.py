@@ -4,8 +4,8 @@ import pickle
 import pandas as pd
 from pathlib import Path
 import streamlit as st
-from src.utils import cargar_modelo, predecir
-from src.streamlit_model import vista_modelo
+from utils import cargar_modelo, predecir
+from streamlit_model import vista_modelo
 
 # Ruta absoluta al directorio src
 BASE_DIR = Path(__file__).resolve().parent

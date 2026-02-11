@@ -4,136 +4,182 @@ import numpy as np
 import matplotlib.pyplot as plt
 import joblib
 import os
-import pydeck as pdk
-from statsmodels.tsa.arima.model import ARIMA
-from sklearn.metrics import mean_squared_error
+from datetime import datetime
 
-@st.cache_data
-def load_data():
-    # Get the directory of the current script (src folder)
-    base_path = os.path.dirname(__file__)
-    # Combine it with the filename
-    file_path = os.path.join(base_path, "df_final_poblacion.csv")
-    
-    return pd.read_csv(file_path)
+# -----------------------------
+# Page configuration
+# -----------------------------
+st.set_page_config(
+    page_title="📈 Population Forecast App",
+    page_icon="📊",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-# PAGE CONFIG
+# -----------------------------
+# Custom CSS
+# -----------------------------
+st.markdown(
+    """
+    <style>
+    .main {background-color: #f7f9fc;}
+    h1, h2, h3 {color: #1f2c56;}
+    .metric-box {
+        background-color: white;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+        text-align: center;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
-st.set_page_config(page_title="Series Temporales - Delitos",
-                   page_icon="📈",
-                   layout="wide")
+# -----------------------------
+# Header
+# -----------------------------
+st.title("📈 Population Forecast by City")
+st.markdown("Forecast future population using trained **time series models**.")
+st.divider()
 
-st.title("📊 Análisis y Predicción de Delitos (Series Temporales)")
-st.markdown(""" Esta aplicación permite analizar la evolución trimestral 
-            de delitos y realizar **predicciones futuras**
-            usando modelos de **series temporales**.
-            """)
+# -----------------------------
+# Sidebar
+# -----------------------------
+st.sidebar.header("⚙️ Configuration")
 
-# LOAD DATA
+CITY_MODELS = {
+    "Madrid": "models/modelo_madrid.pkl",
+    "Barcelona": "models/modelo_barcelona.pkl",
+    "Valencia": "models/modelo_valencia.pkl",
+    "Alicante": "models/modelo_alicante.pkl",
+    "Castellón": "models/modelo_castellon.pkl",
+}
 
-df = load_data()
+city = st.sidebar.selectbox("🏙️ Select City", list(CITY_MODELS.keys()))
 
+n_periods = st.sidebar.slider(
+    "📅 Forecast horizon (years)",
+    min_value=1,
+    max_value=30,
+    value=10,
+    step=1
+)
 
-# SIDEBAR CONTROLS
+show_confidence = st.sidebar.checkbox("📉 Show confidence interval", value=True)
+run_button = st.sidebar.button("🚀 Run Forecast")
 
-st.sidebar.header("🔧 Filtros de análisis")
+st.sidebar.divider()
+st.sidebar.info("Models trained with historical population data")
 
-municipio = st.sidebar.selectbox("Seleccione Municipio",
-                                 sorted(df["Municipio"].unique()))
-
-delito = st.sidebar.selectbox("Seleccione el tipo de delito",
-                              sorted(df["Delitos"].unique()))
-
-
-normalize_pop = st.sidebar.checkbox("Normalizar por población (por cada 100.000 habitantes)")
-
-
-# FILTER DATA
-
-data = df[(df["Municipio"] == municipio) &
-          (df["Delitos"] == delito)].copy()
-
-# Create datetime index
-data["Fecha"] = pd.to_datetime(data["Año"].astype(str) + "-" +
-                               (data["Trimestre"] * 3).astype(str))
-
-data = data.sort_values("Fecha")
-data.set_index("Fecha", inplace=True)
-serie = data["Valor trimestral"]
-
-
-
-# Target variable
-y = data["Valor trimestral"]
-# 1. Convert Poblacion to numeric, turning errors into NaN
-data["Poblacion"] = pd.to_numeric(data["Poblacion"], errors='coerce')
-
-# 2. Drop rows where Poblacion is 0 or NaN to avoid division by zero/errors
-data = data[data["Poblacion"] > 0]
-
-if normalize_pop:
-    y = (y / data["Poblacion"]) * 100000
-    y.name = "Crimes per 100k inhabitants"
-
-
-# SHOW RAW DATA
-
-with st.expander("📄 View filtered data"):
-    st.dataframe(data)
-
-
-# TIME SERIES PLOT
-
-st.subheader("📉 Serie temporal histórica")
-
-fig, ax = plt.subplots(figsize=(10, 4))
-ax.plot(serie, marker="o")
-ax.set_xlabel("Fecha")
-ax.set_ylabel("Delitos trimestrales")
-ax.grid(True)
-
-st.pyplot(fig)
-
-
-# MODEL TRAINING
-
-st.subheader("🤖 Predicción con ARIMA")
-
-if st.button("Entrenar modelo y predecir"):
+# -----------------------------
+# ⭐ SAFE MODEL LOADER
+# -----------------------------
+def load_model_safe(path):
     try:
-        modelo = ARIMA(serie, order=(1, 1, 1))
-        modelo_fit = modelo.fit()
-
-        pasos = 4  # 1 año (4 trimestres)
-        prediccion = modelo_fit.forecast(steps=pasos)
-
-        fechas_futuras = pd.date_range(
-            start=serie.index[-1],
-            periods=pasos + 1,
-            freq="Q")[1:]
-  
-# FORECAST PLOT
-    
-        fig, ax = plt.subplots(figsize=(10, 4))
-        ax.plot(serie, label="Histórico")
-        ax.plot(fechas_futuras, prediccion, label="Predicción", linestyle="--")
-        ax.legend()
-        ax.grid(True)
-
-        st.pyplot(fig)
-
-
-        st.subheader("📋 Valores predichos")
-
-        df_pred = pd.DataFrame({"Fecha": fechas_futuras,
-                                "Predicción de delitos": prediccion.values})
-
-        st.dataframe(df_pred)
-
+        return joblib.load(path)
     except Exception as e:
-        st.error(f"Error en el modelo: {e}")
-    
-# FOOTER
+        st.error("❌ Failed to load model.")
+        st.code(str(e))
+        st.stop()
 
-st.markdown("---")
-st.markdown("Built with using **Streamlit**")
+# -----------------------------
+# Main logic
+# -----------------------------
+if run_button:
+    model_path = CITY_MODELS[city]
+
+    if not os.path.exists(model_path):
+        st.error(f"❌ Model not found: {model_path}")
+        st.stop()
+
+    with st.spinner("Loading model and generating forecast..."):
+        model = load_model_safe(model_path)
+
+        # Forecast (ARIMA / SARIMA compatible)
+        forecast = model.get_forecast(steps=n_periods)
+        mean_forecast = forecast.predicted_mean.astype(float)  # ⭐ avoid dtype issues
+        conf_int = forecast.conf_int().astype(float)
+
+        years = np.arange(
+            datetime.now().year + 1,
+            datetime.now().year + n_periods + 1
+        )
+
+        df_forecast = pd.DataFrame({
+            "Year": years,
+            "Forecast": mean_forecast.values,
+            "Lower": conf_int.iloc[:, 0].values,
+            "Upper": conf_int.iloc[:, 1].values,
+        })
+
+    # -----------------------------
+    # KPIs
+    # -----------------------------
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.markdown(
+            f"<div class='metric-box'><h3>City</h3><h2>{city}</h2></div>",
+            unsafe_allow_html=True
+        )
+
+    with col2:
+        st.markdown(
+            f"<div class='metric-box'><h3>Years Forecasted</h3><h2>{n_periods}</h2></div>",
+            unsafe_allow_html=True
+        )
+
+    with col3:
+        growth = mean_forecast.values[-1] - mean_forecast.values[0]
+        st.markdown(
+            f"<div class='metric-box'><h3>Total Growth</h3><h2>{growth:,.0f}</h2></div>",
+            unsafe_allow_html=True
+        )
+
+    st.divider()
+
+    # -----------------------------
+    # Plot
+    # -----------------------------
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ax.plot(df_forecast["Year"], df_forecast["Forecast"], label="Forecast", linewidth=2)
+
+    if show_confidence:
+        ax.fill_between(
+            df_forecast["Year"],
+            df_forecast["Lower"],
+            df_forecast["Upper"],
+            alpha=0.3,
+            label="Confidence Interval"
+        )
+
+    ax.set_title(f"Population Forecast – {city}")
+    ax.set_xlabel("Year")
+    ax.set_ylabel("Population")
+    ax.grid(True, alpha=0.3)
+    ax.legend()
+
+    st.pyplot(fig)
+
+    st.divider()
+
+    # -----------------------------
+    # Data table
+    # -----------------------------
+    st.subheader("📋 Forecast Data")
+    st.dataframe(df_forecast, use_container_width=True)
+
+    # -----------------------------
+    # Download
+    # -----------------------------
+    csv = df_forecast.to_csv(index=False).encode("utf-8")
+    st.download_button(
+        label="⬇️ Download CSV",
+        data=csv,
+        file_name=f"forecast_{city.lower()}.csv",
+        mime="text/csv"
+    )
+
+else:
+    st.info("👈 Configure the options on the sidebar and click **Run Forecast**")

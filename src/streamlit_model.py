@@ -1,185 +1,130 @@
-import streamlit as st
+# src/utils.py
+
+import pickle
 import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import joblib
-import os
-from datetime import datetime
+from pathlib import Path
+import streamlit as st
+from utils import cargar_modelo, predecir
+from streamlit_model import vista_modelo
 
-# -----------------------------
-# Page configuration
-# -----------------------------
-st.set_page_config(
-    page_title="📈 Population Forecast App",
-    page_icon="📊",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+MODELOS_PATH = Path("src")
 
-# -----------------------------
-# Custom CSS
-# -----------------------------
-st.markdown(
+
+def cargar_modelo(ciudad: str):
     """
-    <style>
-    .main {background-color: #f7f9fc;}
-    h1, h2, h3 {color: #1f2c56;}
-    .metric-box {
-        background-color: white;
-        padding: 20px;
-        border-radius: 12px;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.08);
-        text-align: center;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
+    Carga el modelo .pkl según la ciudad seleccionada
+    """
+    modelo_file = MODELOS_PATH / f"modelo_{ciudad}.pkl"
 
-# -----------------------------
-# Header
-# -----------------------------
-st.title("📈 Population Forecast by City")
-st.markdown("Forecast future population using trained **time series models**.")
-st.divider()
+    if not modelo_file.exists():
+        raise FileNotFoundError(f"No se encontró el modelo para {ciudad}")
 
-# -----------------------------
-# Sidebar
-# -----------------------------
-st.sidebar.header("⚙️ Configuration")
+    with open(modelo_file, "rb") as f:
+        modelo = pickle.load(f)
 
-CITY_MODELS = {
-    "Madrid": "models/modelo_madrid.pkl",
-    "Barcelona": "models/modelo_barcelona.pkl",
-    "Valencia": "models/modelo_valencia.pkl",
-    "Alicante": "models/modelo_alicante.pkl",
-    "Castellón": "models/modelo_castellon.pkl",
-}
+    return modelo
 
-city = st.sidebar.selectbox("🏙️ Select City", list(CITY_MODELS.keys()))
 
-n_periods = st.sidebar.slider(
-    "📅 Forecast horizon (years)",
-    min_value=1,
-    max_value=30,
-    value=10,
-    step=1
-)
+def predecir(modelo, pasos: int):
+    """
+    Realiza predicciones usando el modelo de series temporales
+    """
+    # Compatibilidad con varios frameworks
+    if hasattr(modelo, "forecast"):
+        pred = modelo.forecast(steps=pasos)
+    elif hasattr(modelo, "predict"):
+        pred = modelo.predict(n_periods=pasos)
+    else:
+        raise AttributeError("El modelo no soporta forecast ni predict")
 
-show_confidence = st.sidebar.checkbox("📉 Show confidence interval", value=True)
-run_button = st.sidebar.button("🚀 Run Forecast")
+    return pd.Series(pred)
 
-st.sidebar.divider()
-st.sidebar.info("Models trained with historical population data")
 
-# -----------------------------
-# ⭐ SAFE MODEL LOADER
-# -----------------------------
-def load_model_safe(path):
-    try:
-        return joblib.load(path)
-    except Exception as e:
-        st.error("❌ Failed to load model.")
-        st.code(str(e))
-        st.stop()
+# src/streamlit_model.py
 
-# -----------------------------
-# Main logic
-# -----------------------------
-if run_button:
-    model_path = CITY_MODELS[city]
 
-    if not os.path.exists(model_path):
-        st.error(f"❌ Model not found: {model_path}")
-        st.stop()
 
-    with st.spinner("Loading model and generating forecast..."):
-        model = load_model_safe(model_path)
+def vista_modelo():
+    st.header("📈 Predicción con modelos de Series Temporales")
 
-        # Forecast (ARIMA / SARIMA compatible)
-        forecast = model.get_forecast(steps=n_periods)
-        mean_forecast = forecast.predicted_mean.astype(float)  # ⭐ avoid dtype issues
-        conf_int = forecast.conf_int().astype(float)
-
-        years = np.arange(
-            datetime.now().year + 1,
-            datetime.now().year + n_periods + 1
-        )
-
-        df_forecast = pd.DataFrame({
-            "Year": years,
-            "Forecast": mean_forecast.values,
-            "Lower": conf_int.iloc[:, 0].values,
-            "Upper": conf_int.iloc[:, 1].values,
-        })
-
-    # -----------------------------
-    # KPIs
-    # -----------------------------
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        st.markdown(
-            f"<div class='metric-box'><h3>City</h3><h2>{city}</h2></div>",
-            unsafe_allow_html=True
-        )
-
-    with col2:
-        st.markdown(
-            f"<div class='metric-box'><h3>Years Forecasted</h3><h2>{n_periods}</h2></div>",
-            unsafe_allow_html=True
-        )
-
-    with col3:
-        growth = mean_forecast.values[-1] - mean_forecast.values[0]
-        st.markdown(
-            f"<div class='metric-box'><h3>Total Growth</h3><h2>{growth:,.0f}</h2></div>",
-            unsafe_allow_html=True
-        )
-
-    st.divider()
-
-    # -----------------------------
-    # Plot
-    # -----------------------------
-    fig, ax = plt.subplots(figsize=(10, 5))
-    ax.plot(df_forecast["Year"], df_forecast["Forecast"], label="Forecast", linewidth=2)
-
-    if show_confidence:
-        ax.fill_between(
-            df_forecast["Year"],
-            df_forecast["Lower"],
-            df_forecast["Upper"],
-            alpha=0.3,
-            label="Confidence Interval"
-        )
-
-    ax.set_title(f"Population Forecast – {city}")
-    ax.set_xlabel("Year")
-    ax.set_ylabel("Population")
-    ax.grid(True, alpha=0.3)
-    ax.legend()
-
-    st.pyplot(fig)
-
-    st.divider()
-
-    # -----------------------------
-    # Data table
-    # -----------------------------
-    st.subheader("📋 Forecast Data")
-    st.dataframe(df_forecast, use_container_width=True)
-
-    # -----------------------------
-    # Download
-    # -----------------------------
-    csv = df_forecast.to_csv(index=False).encode("utf-8")
-    st.download_button(
-        label="⬇️ Download CSV",
-        data=csv,
-        file_name=f"forecast_{city.lower()}.csv",
-        mime="text/csv"
+    st.markdown(
+        """
+        Esta aplicación utiliza modelos de **series temporales entrenados previamente**
+        para realizar predicciones por ciudad.
+        """
     )
 
-else:
-    st.info("👈 Configure the options on the sidebar and click **Run Forecast**")
+    ciudad = st.selectbox(
+        "Selecciona una ciudad",
+        ["madrid", "barcelona", "valencia", "alicante", "castellon"]
+    )
+
+    pasos = st.slider(
+        "Horizonte de predicción (periodos futuros)",
+        min_value=1,
+        max_value=60,
+        value=12
+    )
+
+    if st.button("🔮 Generar predicción"):
+        with st.spinner("Cargando modelo y calculando predicción..."):
+            try:
+                modelo = cargar_modelo(ciudad)
+                predicciones = predecir(modelo, pasos)
+
+                df_pred = pd.DataFrame({
+                    "Periodo": range(1, pasos + 1),
+                    "Predicción": predicciones.values
+                })
+
+                st.success("Predicción generada correctamente")
+
+                st.subheader("📊 Resultados")
+                st.dataframe(df_pred, use_container_width=True)
+
+                st.subheader("📉 Visualización")
+                st.line_chart(df_pred.set_index("Periodo"))
+
+                st.download_button(
+                    label="📥 Descargar predicciones (CSV)",
+                    data=df_pred.to_csv(index=False),
+                    file_name=f"prediccion_{ciudad}.csv",
+                    mime="text/csv"
+                )
+
+            except Exception as e:
+                st.error(f"Error al generar la predicción: {e}")
+
+
+# src/app.py
+
+
+
+st.set_page_config(
+    page_title="ML Time Series Forecast App",
+    page_icon="📊",
+    layout="wide"
+)
+
+
+st.title("📊 Aplicación de Predicción con Series Temporales")
+st.markdown(
+    """
+    Bienvenido a la aplicación de **Machine Learning para predicción temporal**.  
+    Selecciona una ciudad y obtén predicciones basadas en modelos entrenados.
+    """
+)
+
+menu = st.sidebar.radio(
+    "Navegación",
+    ["Predicción de Series Temporales"]
+)
+
+if menu == "Predicción de Series Temporales":
+    vista_modelo()
+
+st.sidebar.markdown("---")
+st.sidebar.info(
+    "Desarrollado con **Python + Streamlit**\n\n"
+    "Modelos de Series Temporales entrenados previamente."
+)

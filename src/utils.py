@@ -2,31 +2,21 @@ import pickle
 import pandas as pd
 from pathlib import Path
 
+BASE_DIR = Path(__file__).resolve().parent
+
+def cargar_modelo(ciudad: str):
+    modelo_path = BASE_DIR / f"modelo_{ciudad}.pkl"
+
+    if not modelo_path.exists():
+        raise FileNotFoundError(f"No existe el modelo para {ciudad}")
+
+    with open(modelo_path, "rb") as f:
+        modelo = pickle.load(f)
+
+    return modelo
+
 
 def predecir(modelo, pasos: int):
-    """
-    Genera predicciones futuras.
-    Si el modelo requiere variables exógenas,
-    se generan automáticamente con valores 0.
-    """
-    import pandas as pd
-    import numpy as np
-
-    # Detectar si el modelo tiene exógenas
-    if hasattr(modelo, "model") and hasattr(modelo.model, "exog_names"):
-        exog_names = modelo.model.exog_names
-
-        if exog_names is not None:
-            # Crear DataFrame futuro con ceros
-            exog_futuro = pd.DataFrame(
-                np.zeros((pasos, len(exog_names))),
-                columns=exog_names
-            )
-
-            pred = modelo.forecast(steps=pasos, exog=exog_futuro)
-            return pd.Series(pred)
-
-    # Si no tiene exógenas
     if hasattr(modelo, "forecast"):
         pred = modelo.forecast(steps=pasos)
     elif hasattr(modelo, "predict"):

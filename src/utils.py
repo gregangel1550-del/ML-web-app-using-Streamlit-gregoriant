@@ -1,3 +1,8 @@
+import pickle
+import pandas as pd
+from pathlib import Path
+
+
 def predecir(modelo, pasos: int):
     """
     Genera predicciones futuras.

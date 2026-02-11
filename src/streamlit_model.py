@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import job pickle
+import joblib as pickle
 import os
 import matplotlib.pyplot as plt
 from statsmodels.tsa.statespace.sarimax import SARIMAXResults

@@ -7,13 +7,13 @@ import streamlit as st
 from utils import cargar_modelo, predecir
 from streamlit_model import vista_modelo
 
-# Ruta absoluta al directorio src
+
 BASE_DIR = Path(__file__).resolve().parent
 
 
 def cargar_modelo(ciudad: str):
     """
-    Carga un modelo de series temporales desde un archivo .pkl
+    Carga el modelo de series temporales desde un archivo .pkl
     """
     modelo_path = BASE_DIR / f"modelo_{ciudad}.pkl"
 
@@ -28,7 +28,7 @@ def cargar_modelo(ciudad: str):
 
 def predecir(modelo, pasos: int):
     """
-    Genera predicciones para n pasos futuros
+    Genera predicciones futuras
     """
     if hasattr(modelo, "forecast"):
         pred = modelo.forecast(steps=pasos)

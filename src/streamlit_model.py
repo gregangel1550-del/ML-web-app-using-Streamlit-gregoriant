@@ -4,7 +4,7 @@ import pickle
 import pandas as pd
 from pathlib import Path
 import streamlit as st
-from utils import cargar_modelo, predecir
+from db import cargar_modelo, predecir
 from streamlit_model import vista_modelo
 
 

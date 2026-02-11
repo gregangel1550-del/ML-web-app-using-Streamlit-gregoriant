@@ -4,22 +4,23 @@ import pickle
 import pandas as pd
 from pathlib import Path
 import streamlit as st
-from utils import cargar_modelo, predecir
-from streamlit_model import vista_modelo
+from src.utils import cargar_modelo, predecir
+from src.streamlit_model import vista_modelo
 
-MODELOS_PATH = Path("src")
+# Ruta absoluta al directorio src
+BASE_DIR = Path(__file__).resolve().parent
 
 
 def cargar_modelo(ciudad: str):
     """
-    Carga el modelo .pkl según la ciudad seleccionada
+    Carga un modelo de series temporales desde un archivo .pkl
     """
-    modelo_file = MODELOS_PATH / f"modelo_{ciudad}.pkl"
+    modelo_path = BASE_DIR / f"modelo_{ciudad}.pkl"
 
-    if not modelo_file.exists():
-        raise FileNotFoundError(f"No se encontró el modelo para {ciudad}")
+    if not modelo_path.exists():
+        raise FileNotFoundError(f"No existe el modelo para {ciudad}")
 
-    with open(modelo_file, "rb") as f:
+    with open(modelo_path, "rb") as f:
         modelo = pickle.load(f)
 
     return modelo
@@ -27,15 +28,14 @@ def cargar_modelo(ciudad: str):
 
 def predecir(modelo, pasos: int):
     """
-    Realiza predicciones usando el modelo de series temporales
+    Genera predicciones para n pasos futuros
     """
-    # Compatibilidad con varios frameworks
     if hasattr(modelo, "forecast"):
         pred = modelo.forecast(steps=pasos)
     elif hasattr(modelo, "predict"):
         pred = modelo.predict(n_periods=pasos)
     else:
-        raise AttributeError("El modelo no soporta forecast ni predict")
+        raise AttributeError("Modelo no compatible con forecast/predict")
 
     return pd.Series(pred)
 
